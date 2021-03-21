@@ -18,11 +18,15 @@ QAOA Implementation for the MaxCut problem
 #########################################################################################
 
 # QAOA implementation, n=3
-def qaoa():
+def qaoa(error_correct=False):
 	
 	# initialize qubits with architecture in mind
 	qubits = [cirq.GridQubit(1, 4), cirq.GridQubit(2, 4),\
 	          cirq.GridQubit(3, 4)]
+
+	if error_correct:
+		error_qubits = [cirq.GridQubit(3, 4), cirq.GridQubit(3, 3),\
+	                    cirq.GridQubit(3, 2), cirq.GridQubit(4, 3)]
 
 	# initialize variables
 	beta = math.pi/2
@@ -36,6 +40,13 @@ def qaoa():
 	# construct circuit
 	circuit = cirq.Circuit()
 
+	# error correction setup. error correct qubit (2,3)
+	if error_correct:
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[0], error_qubits[1])])
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[0], error_qubits[1])])
+
 	circuit.append([cirq.H(q) for q in qubits])
 	
 	circuit.append([cirq.ZZPowGate(exponent=2 * gamma / math.pi, global_shift=-0.5).on(qubits[0], qubits[1])])
@@ -45,6 +56,20 @@ def qaoa():
 	circuit.append([cirq.SWAP(qubits[1], qubits[2])])
 
 	circuit.append([cirq.rx(2*beta).on_each(*qubits)])
+
+	# error detection and correction
+	if error_correct:
+		circuit.append([cirq.SWAP(error_qubits[2], error_qubits[1])])
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[2], error_qubits[1])])
+		circuit.append([cirq.CNOT(error_qubits[1], error_qubits[2])])
+		circuit.append([cirq.SWAP(error_qubits[3], error_qubits[1])])
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.CNOT(error_qubits[0], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[1], error_qubits[3])])
+		circuit.append([cirq.measure(error_qubits[2]), cirq.measure(error_qubits[3])])
+		circuit.append([cirq.CCNOT(qubits[2], error_qubits[1], error_qubits[0])])
+
 	circuit.append([cirq.measure(*qubits)])
 
 	# check for sycamore

@@ -21,14 +21,25 @@ Notation: {0,1}^n is the set of bit strings of length n.
 
 # Grover's algorithm implementation and simulation
 # oracle string = 111, 3 qubits
-def grover():
+def grover(error_correct=False):
 	
 	# initialize qubits with architecture in mind
 	qubits = [cirq.GridQubit(1, 4), cirq.GridQubit(2, 4),\
 	          cirq.GridQubit(3, 4)]
 
+	if error_correct:
+		error_qubits = [cirq.GridQubit(3, 4), cirq.GridQubit(3, 3),\
+	                    cirq.GridQubit(3, 2), cirq.GridQubit(4, 3)]
+
 	# construct circuit
 	circuit = cirq.Circuit()
+
+	# error correction setup. error correct qubit (2,3)
+	if error_correct:
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[0], error_qubits[1])])
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[0], error_qubits[1])])
 
 	# hadamards
 	circuit.append([cirq.H(q) for q in qubits])
@@ -43,6 +54,19 @@ def grover():
 		circuit.append([cirq.CCZ(*qubits)])
 		circuit.append([cirq.X(q) for q in qubits])
 		circuit.append([cirq.H(q) for q in qubits])
+
+	# error detection and correction
+	if error_correct:
+		circuit.append([cirq.SWAP(error_qubits[2], error_qubits[1])])
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[2], error_qubits[1])])
+		circuit.append([cirq.CNOT(error_qubits[1], error_qubits[2])])
+		circuit.append([cirq.SWAP(error_qubits[3], error_qubits[1])])
+		circuit.append([cirq.CNOT(qubits[2], error_qubits[1])])
+		circuit.append([cirq.CNOT(error_qubits[0], error_qubits[1])])
+		circuit.append([cirq.SWAP(error_qubits[1], error_qubits[3])])
+		circuit.append([cirq.measure(error_qubits[2]), cirq.measure(error_qubits[3])])
+		circuit.append([cirq.CCNOT(qubits[2], error_qubits[1], error_qubits[0])])
 
 	circuit.append([cirq.measure(q) for q in qubits])
 
