@@ -3,6 +3,8 @@
 # Bernstein-Vazirani Problem:
 
 import cirq
+from qiskit import IBMQ, assemble, transpile
+from qiskit.circuit import QuantumCircuit as qiskitqc
 import requests
 
 '''
@@ -23,6 +25,14 @@ of length n, * is inner product mod 2, + is addition mod 2, and b is an unknown 
 # constructs a bernstein-vazirani circuit
 # example circuit: a = 0101101, b = 0
 def bernstein(error_correct=False):
+
+	API_TOKEN = '7cf33cd2f0d7044af8518c33321fa74d7380d3ba58d08b271404e8226aa1f5490818ba86e1635f89e6c3cfbf10aa091ff04c1f5ff61f0f391ed780b4484e0b18'
+
+	# initialize qiskit
+	IBMQ.save_account(API_TOKEN)
+	provider = IBMQ.load_account()
+	print(provider.backends())
+	backend = provider.backends.ibmq_16_melbourne
 
 	# initialize qubits with architecture in mind
 	qubits = [cirq.GridQubit(0, 5), cirq.GridQubit(1, 4),\
@@ -75,14 +85,23 @@ def bernstein(error_correct=False):
 	# measure
 	circuit.append([cirq.measure(q) for q in qubits[:-1]])
 
-	# check for sycamore
-	cirq.google.optimized_for_sycamore(circuit=circuit, new_device=cirq.google.Sycamore, optimizer_type='sycamore')
+	# export to qasm
+	qasm_str = circuit.to_qasm()
 
-	url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/send'
-	job_payload = {"circuit":cirq.to_json(circuit),\
-					"email":"jacobkaufman4@gmail.com",\
-					"repetitions":1000,\
-					"student_id":204929264}
+	# import qiskit from qasm
+	qiskit_circuit = qiskitqc.from_qasm_str(qasm_str)
+
+	# run qiskit
+	transpiled = transpile(qiskit_circuit, backend)
+	qobj = assemble(transpiled, backend, shots=100)
+	job = backend.run(qobj)
+	print(job.job_id())
+	result = job.result()
+	counts = result.get_counts()
+	delayed_result = backend.retrieve_job(job.job_id()).result()
+	delayed_counts = delayed_result.get_counts()
+	print(counts)
+	print(delayed_counts)
 
 	return requests.post(url, json=job_payload)
 
